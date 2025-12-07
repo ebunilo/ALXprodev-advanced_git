@@ -1,0 +1,17 @@
+# ...existing code...
+#!/usr/bin/env bash
+set -euo pipefail
+
+branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
+if [ "$branch" != "main" ]; then
+  exit 0
+fi
+
+head=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+timestamp=$(date --iso-8601=seconds 2>/dev/null || date)
+logfile=".git/merge-log"
+
+mkdir -p "$(dirname "$logfile")"
+echo "$timestamp - merged into $branch - HEAD $head" >> "$logfile"
+echo "Merge logged to $logfile"
+# ...existing code...

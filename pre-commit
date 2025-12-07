@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+missing=()
+
+# create a temp file to collect missing dirs (avoids subshell variable issues)
+tmpfile="$(mktemp)"
+trap 'rm -f "$tmpfile"' EXIT
+
+# Use a POSIX-friendly pipeline instead of process substitution
+find . -type d -print0 | while IFS= read -r -d '' dir; do
+  # skip git dir itself
+  [ "$dir" = "./.git" ] && continue
+
+  # skip any hidden directory (any path component starting with a dot)
+  hidden=0
+  tmp="$dir"
+  while [ "$tmp" != "." ] && [ "$tmp" != "/" ]; do
+    base="$(basename "$tmp")"
+    case "$base" in
+      .*) hidden=1; break ;;
+    esac
+    tmp="$(dirname "$tmp")"
+  done
+  [ "$hidden" -eq 1 ] && continue
+
+  # check for case-insensitive README files at dir root
+  if ! find "$dir" -maxdepth 1 -type f \( -iname 'readme' -o -iname 'readme.*' \) -print -quit | grep -q .; then
+    printf '%s\0' "${dir#./}" >> "$tmpfile"
+  fi
+done
+
+if [ -s "$tmpfile" ]; then
+  echo "Commit blocked: the following directories are missing a README file:"
+  while IFS= read -r -d '' d; do
+    echo "  - $d"
+  done < "$tmpfile"
+  # cleanup handled by trap
+  exit 1
+fi
+
+exit 0
